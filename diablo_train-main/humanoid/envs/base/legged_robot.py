@@ -125,6 +125,7 @@ class LeggedRobot(BaseTask):
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
+            self.compute_dof_vel()  # use position difference instead of velocity from isaacgym
             if self.cfg.domain_rand.add_dof_lag:
                 q = self.dof_pos
                 dq = self.dof_vel
@@ -144,7 +145,7 @@ class LeggedRobot(BaseTask):
                 self.base_euler_xyz = get_euler_xyz_tensor(self.base_quat)
                 self.imu_lag_buffer[:,:,1:] = self.imu_lag_buffer[:,:,:self.cfg.domain_rand.imu_lag_timesteps_range[1]].clone()
                 self.imu_lag_buffer[:,:,0] = torch.cat((self.base_ang_vel, self.base_euler_xyz ), 1).clone()
-        
+                
         self.post_physics_step()
 
         # return clipped obs, clipped states (None), rewards, dones and infos
@@ -153,6 +154,16 @@ class LeggedRobot(BaseTask):
         if self.privileged_obs_buf is not None:
             self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
         return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
+
+    def compute_dof_vel(self):
+        diff = (torch.remainder(self.dof_pos - self.last_dof_pos + self.pi,
+                                2 * self.pi) - self.pi)
+        self.dof_pos_dot = diff / self.sim_params.dt
+
+        if self.cfg.env.dof_vel_use_pos_diff:
+            self.dof_vel = self.dof_pos_dot
+
+        self.last_dof_pos[:] = self.dof_pos[:]
 
     def reset(self):
         """ Reset all robots"""
@@ -175,6 +186,8 @@ class LeggedRobot(BaseTask):
 
         # prepare quantities
         self.base_quat[:] = self.root_states[:, 3:7]
+        self.base_lin_vel = (self.base_position -
+                             self.last_base_position) / self.dt        
         self.base_lin_vel[:] = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
         self.base_ang_vel[:] = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
         self.projected_gravity[:] = quat_rotate_inverse(self.base_quat, self.gravity_vec)
@@ -200,6 +213,10 @@ class LeggedRobot(BaseTask):
         self.last_contact_forces[:] = self.contact_forces[:]
         self.last_torques[:] = self.torques[:]
 
+        self.last_actions[:, :, 1] = self.last_actions[:, :, 0]
+        self.last_actions[:, :, 0] = self.actions[:]
+        self.last_base_position[:] = self.base_position[:]
+
         if self.viewer and self.enable_viewer_sync and self.debug_viz:
             self._draw_debug_vis()
 
@@ -215,6 +232,30 @@ class LeggedRobot(BaseTask):
         self.reset_buf |= self.time_out_buf
         self.reset_buf |= roll_cutoff
         self.reset_buf |= pitch_cutoff
+
+        fail_buf = torch.any(
+            torch.norm(
+                self.contact_forces[:, self.termination_contact_indices, :],
+                dim=-1) > 1.0,
+            dim=1,
+        )
+        fail_buf |= self.projected_gravity[:, 2] > -0.8
+        self.fail_buf *= fail_buf
+        self.fail_buf += fail_buf
+
+        if self.cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
+            self.edge_reset_buf = self.base_position[:,
+                                                     0] > self.terrain_x_max - 1
+            self.edge_reset_buf |= self.base_position[:,
+                                                      0] < self.terrain_x_min + 1
+            self.edge_reset_buf |= self.base_position[:,
+                                                      1] > self.terrain_y_max - 1
+            self.edge_reset_buf |= self.base_position[:,
+                                                      1] < self.terrain_y_min + 1
+
+        self.reset_buf |= ((self.fail_buf
+                           > self.cfg.env.fail_to_terminal_time_s / self.dt)
+                          | self.edge_reset_buf)
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -263,6 +304,8 @@ class LeggedRobot(BaseTask):
         self.feet_air_time[env_ids] = 0.
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+        self.fail_buf[env_ids] = 0
+        self.last_base_position[env_ids] = self.base_position[env_ids]
         # fill extras
         self.extras["episode"] = {}
         for key in self.episode_sums.keys():
@@ -725,13 +768,25 @@ class LeggedRobot(BaseTask):
         else:
             p_gains = self.p_gains
             d_gains = self.d_gains
-            
+
+        if self.cfg.control.use_pos_pos_vel:
+            pos_ref = self.lagged_actions_scaled * self.cfg.control.pos_action_scale
+            pos_ref[:, 2] *= 0
+            pos_ref[:, 5] *= 0
+            vel_ref = self.lagged_actions_scaled * self.cfg.control.vel_action_scale
+            vel_ref[:, :2] *= 0
+            vel_ref[:, 3:5] *= 0
+            torques = self.p_gains * (pos_ref + self.default_dof_pos - self.dof_pos
+                                    ) + self.d_gains * (vel_ref - self.dof_vel)
+        else:
+            torques = p_gains * (self.lagged_actions_scaled + self.default_dof_pos - self.dof_pos) - d_gains * self.dof_vel
+       
         if self.cfg.domain_rand.randomize_coulomb_friction:
-            torques = p_gains * (self.lagged_actions_scaled + self.default_dof_pos - self.dof_pos + self.motor_offsets) -\
-            d_gains * self.dof_vel -\
-            self.randomized_joint_viscous * self.dof_vel - self.randomized_joint_coulomb * torch.sign(self.dof_vel)
+            torques += p_gains * self.motor_offsets -\
+                       self.randomized_joint_viscous * self.dof_vel -\
+                       self.randomized_joint_coulomb * torch.sign(self.dof_vel)
         else: 
-            torques = p_gains * (self.lagged_actions_scaled + self.default_dof_pos - self.dof_pos + self.motor_offsets) - d_gains * self.dof_vel
+            torques += p_gains * self.motor_offsets
 
         if self.cfg.domain_rand.randomize_torque:
             motor_strength_ranges = self.cfg.domain_rand.torque_multiplier_range
@@ -750,8 +805,10 @@ class LeggedRobot(BaseTask):
             env_ids (List[int]): Environemnt ids
         """
         # rand env reset self.dof_pos, which sync with self.dof_state
-        self.dof_pos[env_ids] = self.default_dof_pos + torch_rand_float(-0.1, 0.1, (len(env_ids), self.num_dof), device=self.device)
+        self.dof_pos[env_ids] = self.default_dof_pos 
         self.dof_vel[env_ids] = 0.
+        if self.cfg.init_state.rand_init_dof:
+            self.dof_pos[env_ids] += torch_rand_float(-0.1, 0.1, (len(env_ids), self.num_dof), device=self.device)
 
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_dof_state_tensor_indexed(self.sim,
@@ -873,6 +930,9 @@ class LeggedRobot(BaseTask):
         self.last_last_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
         self.last_rigid_state = torch.zeros_like(self.rigid_state)
         self.last_contact_forces = torch.zeros_like(self.contact_forces)
+        self.base_position = self.root_states[:, :3]
+        self.last_base_position = self.base_position.clone()
+        self.last_dof_pos = torch.zeros_like(self.dof_pos)
         self.last_dof_vel = torch.zeros_like(self.dof_vel)
         self.last_root_vel = torch.zeros_like(self.root_states[:, 7:13])
         self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading

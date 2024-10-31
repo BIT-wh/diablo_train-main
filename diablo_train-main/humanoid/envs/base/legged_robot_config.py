@@ -44,6 +44,8 @@ class LeggedRobotCfg(BaseConfig):
         episode_length_s = 20 # episode length in seconds
         num_commands = 5
         add_stand_bool = False #used for stand
+        dof_vel_use_pos_diff = True # use position difference instead of velocity from isaacgym
+        fail_to_terminal_time_s = 1
 
     class terrain:
         mesh_type = 'trimesh' # "heightfield" # none, plane, heightfield or trimesh
@@ -112,6 +114,7 @@ class LeggedRobotCfg(BaseConfig):
         default_joint_angles = { # target angles when action = 0.0
             "joint_a": 0., 
             "joint_b": 0.}
+        rand_init_dof = True # randomize initial joint angles
 
     class control:
         control_type = 'P' # P: position, V: velocity, T: torques
