@@ -47,10 +47,11 @@ class DiabloCfg(LeggedRobotCfg):
         single_linvel_index = 21    # linvel对应在privileged_obs
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
         num_actions = 6
-        num_envs = 4096
+        num_envs = 2
         episode_length_s = 24 #episode length in seconds
         use_ref_actions = False
         num_commands = 5 # sin_pos cos_pos vx vy vz
+        fail_to_terminal_time_s = 0.5
 
     class safety:
         # safety factors
@@ -60,14 +61,14 @@ class DiabloCfg(LeggedRobotCfg):
 
 
     class asset(LeggedRobotCfg.asset):
-        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/diablo/urdf/diablo_asm.urdf'
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/diablo/urdf/diablo.urdf'
         # xml_file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/x1/mjcf/xyber_x1_flat.xml'
 
         name = "diablo"
         foot_name = "wheel"
         knee_name = "knee"
 
-        terminate_after_contacts_on = ['diablo_base_link']
+        terminate_after_contacts_on = []
         penalize_contacts_on = ["diablo_base_link"]
         self_collisions = 0  # 1 to disable, 0 to enable...bitwise filter
         flip_visual_attachments = False
@@ -75,8 +76,8 @@ class DiabloCfg(LeggedRobotCfg):
         fix_base_link = False
 
     class terrain(LeggedRobotCfg.terrain):
-        # mesh_type = 'plane'
-        mesh_type = 'trimesh'
+        mesh_type = 'plane'
+        # mesh_type = 'trimesh'
         curriculum = False
         # rough terrain only:
         measure_heights = False
@@ -123,15 +124,15 @@ class DiabloCfg(LeggedRobotCfg):
 
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.3]
+        pos = [0.0, 0.0, 0.24]
 
         default_joint_angles = {  # = target angles [rad] when action = 0.0
-            "left_hip_joint": 0.0,
-            "left_knee_joint": 0.0,
+            "left_hip_joint": 0.65,
+            "left_knee_joint": -1.25,
             "left_wheel_joint": 0.0,
-            "right_hip_joint": 0.0,
-            "right_knee_joint": 0.0,
-            "right_wheel_joint": 0.0,
+            "right_hip_joint": 0.65,
+            "right_knee_joint": -1.25,
+            "right_wheel_joint": 0   
         }
         rand_init_dof = True # randomize initial joint angles
 
@@ -245,12 +246,12 @@ class DiabloCfg(LeggedRobotCfg):
         joint_9_armature_range = [0.0001, 0.05]
         joint_10_armature_range = [0.0001, 0.05]
 
-        add_lag = True
+        add_lag = False # action lag
         randomize_lag_timesteps = True
         randomize_lag_timesteps_perstep = False
         lag_timesteps_range = [5, 40]
         
-        add_dof_lag = True
+        add_dof_lag = False
         randomize_dof_lag_timesteps = True
         randomize_dof_lag_timesteps_perstep = False
         dof_lag_timesteps_range = [0, 40]
@@ -335,7 +336,7 @@ class DiabloCfg(LeggedRobotCfg):
             # track_vel_hard = 0.5
             # # base pos
             # default_joint_pos = 1.0
-            # orientation = 1.
+            orientation = 1.
             # feet_rotation = 0.3
             # base_height = 0.2
             # base_acc = 0.2

@@ -225,12 +225,10 @@ class LeggedRobot(BaseTask):
         # self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         
-        roll_cutoff = torch.abs(self.base_euler_xyz[:,0]) > 1.5
-        pitch_cutoff = torch.abs(self.base_euler_xyz[:,1]) > 1.5
-
-        self.reset_buf |= self.time_out_buf
-        self.reset_buf |= roll_cutoff
-        self.reset_buf |= pitch_cutoff
+        # roll_cutoff = torch.abs(self.base_euler_xyz[:,0]) > 1.5
+        # pitch_cutoff = torch.abs(self.base_euler_xyz[:,1]) > 1.5
+        # self.reset_buf |= roll_cutoff
+        # self.reset_buf |= pitch_cutoff
 
         fail_buf = torch.any(
             torch.norm(
@@ -242,18 +240,20 @@ class LeggedRobot(BaseTask):
         self.fail_buf *= fail_buf
         self.fail_buf += fail_buf
 
-        # if self.cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
-        #     self.edge_reset_buf = self.base_position[:,
-        #                                              0] > self.terrain_x_max - 1
-        #     self.edge_reset_buf |= self.base_position[:,
-        #                                               0] < self.terrain_x_min + 1
-        #     self.edge_reset_buf |= self.base_position[:,
-        #                                               1] > self.terrain_y_max - 1
-        #     self.edge_reset_buf |= self.base_position[:,
-        #                                               1] < self.terrain_y_min + 1
+        if self.cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
+            self.edge_reset_buf = self.base_position[:,
+                                                     0] > self.terrain_x_max - 1
+            self.edge_reset_buf |= self.base_position[:,
+                                                      0] < self.terrain_x_min + 1
+            self.edge_reset_buf |= self.base_position[:,
+                                                      1] > self.terrain_y_max - 1
+            self.edge_reset_buf |= self.base_position[:,
+                                                      1] < self.terrain_y_min + 1
 
-        self.reset_buf |= ((self.fail_buf
+        self.reset_buf = ((self.fail_buf
                            > self.cfg.env.fail_to_terminal_time_s / self.dt)
+                           | self.time_out_buf
+                           | self.edge_reset_buf
                           )
 
     def reset_idx(self, env_ids):
