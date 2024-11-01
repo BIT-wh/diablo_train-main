@@ -130,89 +130,89 @@ class DiabloEnv(LeggedRobot):
         self.gym.set_actor_root_state_tensor(
             self.sim, gymtorch.unwrap_tensor(self.root_states))()
     
-    # TODO: 需要修改resample command
-    def _resample_commands(self):
-        """ Randommly select commands of some environments
+    # # TODO: 需要修改resample command
+    # def _resample_commands(self):
+    #     """ Randommly select commands of some environments
 
-        Args:
-            env_ids (List[int]): Environments ids for which new commands are needed
-        """
-        for i in range(len(self.cfg.commands.gait)):
-            # if env finish current gait type, resample command for next gait
-            env_ids = (self.episode_length_buf == self.gait_time[:,i]).nonzero(as_tuple=False).flatten()
-            if len(env_ids) > 0:
-                # according to gait type create a name
-                name = '_resample_' + self.cfg.commands.gait[i] + '_command'
-                # get function from self based on name
-                resample_command = getattr(self, name)
-                # resample_command stands for _resample_stand_command/_resample_walk_sagittal_command/...
-                resample_command(env_ids)
+    #     Args:
+    #         env_ids (List[int]): Environments ids for which new commands are needed
+    #     """
+    #     for i in range(len(self.cfg.commands.gait)):
+    #         # if env finish current gait type, resample command for next gait
+    #         env_ids = (self.episode_length_buf == self.gait_time[:,i]).nonzero(as_tuple=False).flatten()
+    #         if len(env_ids) > 0:
+    #             # according to gait type create a name
+    #             name = '_resample_' + self.cfg.commands.gait[i] + '_command'
+    #             # get function from self based on name
+    #             resample_command = getattr(self, name)
+    #             # resample_command stands for _resample_stand_command/_resample_walk_sagittal_command/...
+    #             resample_command(env_ids)
 
-    def _resample_stand_command(self, env_ids):
-        self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
-        self.commands[env_ids, 1] = torch.zeros(len(env_ids), device=self.device)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
-        else:
-            self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
+    # def _resample_stand_command(self, env_ids):
+    #     self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
+    #     self.commands[env_ids, 1] = torch.zeros(len(env_ids), device=self.device)
+    #     if self.cfg.commands.heading_command:
+    #         self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
+    #     else:
+    #         self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
             
-    def _resample_walk_sagittal_command(self, env_ids):
-        self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        self.commands[env_ids, 1] = torch.zeros(len(env_ids), device=self.device)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
-        else:
-            self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
+    # def _resample_walk_sagittal_command(self, env_ids):
+    #     self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    #     self.commands[env_ids, 1] = torch.zeros(len(env_ids), device=self.device)
+    #     if self.cfg.commands.heading_command:
+    #         self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
+    #     else:
+    #         self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
 
-    def _resample_walk_lateral_command(self, env_ids):
-        self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
-        self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
-        else:
-            self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
+    # def _resample_walk_lateral_command(self, env_ids):
+    #     self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
+    #     self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    #     if self.cfg.commands.heading_command:
+    #         self.commands[env_ids, 3] = torch.zeros(len(env_ids), device=self.device)
+    #     else:
+    #         self.commands[env_ids, 2] = torch.zeros(len(env_ids), device=self.device)
     
-    def _resample_rotate_command(self, env_ids):
-        self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
-        self.commands[env_ids, 1] = torch.zeros(len(env_ids), device=self.device)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        else:
-            self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    # def _resample_rotate_command(self, env_ids):
+    #     self.commands[env_ids, 0] = torch.zeros(len(env_ids), device=self.device)
+    #     self.commands[env_ids, 1] = torch.zeros(len(env_ids), device=self.device)
+    #     if self.cfg.commands.heading_command:
+    #         self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    #     else:
+    #         self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
 
-    def _resample_walk_omnidirectional_command(self,env_ids):
-        self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        if self.cfg.commands.heading_command:
-            self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        else:
-            self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
-        # self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.05).unsqueeze(1)
+    # def _resample_walk_omnidirectional_command(self,env_ids):
+    #     self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    #     self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    #     if self.cfg.commands.heading_command:
+    #         self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    #     else:
+    #         self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+    #     # self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.05).unsqueeze(1)
         
-    def _post_physics_step_callback(self):
-        """ Callback called before computing terminations, rewards, and observations
-            Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
-        """
-        self._resample_commands()
-        if self.cfg.commands.heading_command:
-            forward = quat_apply(self.base_quat, self.forward_vec)
-            heading = torch.atan2(forward[:, 1], forward[:, 0])
-            self.commands[:, 2] = torch.clip(0.5*wrap_to_pi(self.commands[:, 3] - heading), -1., 1.)
+    # def _post_physics_step_callback(self):
+    #     """ Callback called before computing terminations, rewards, and observations
+    #         Default behaviour: Compute ang vel command based on target and heading, compute measured terrain heights and randomly push robots
+    #     """
+    #     self._resample_commands()
+    #     if self.cfg.commands.heading_command:
+    #         forward = quat_apply(self.base_quat, self.forward_vec)
+    #         heading = torch.atan2(forward[:, 1], forward[:, 0])
+    #         self.commands[:, 2] = torch.clip(0.5*wrap_to_pi(self.commands[:, 3] - heading), -1., 1.)
 
-        if self.cfg.terrain.measure_heights:
-            # get all robot surrounding height
-            self.measured_heights = self._get_heights()
+    #     if self.cfg.terrain.measure_heights:
+    #         # get all robot surrounding height
+    #         self.measured_heights = self._get_heights()
 
-        if self.cfg.domain_rand.push_robots:
-            i = int(self.common_step_counter/self.cfg.domain_rand.update_step)
-            if i >= len(self.cfg.domain_rand.push_duration):
-                i = len(self.cfg.domain_rand.push_duration) - 1
-            duration = self.cfg.domain_rand.push_duration[i]/self.dt
-            if self.common_step_counter % self.cfg.domain_rand.push_interval <= duration:
-                self._push_robots()
-            else:
-                self.rand_push_force.zero_()
-                self.rand_push_torque.zero_()
+    #     if self.cfg.domain_rand.push_robots:
+    #         i = int(self.common_step_counter/self.cfg.domain_rand.update_step)
+    #         if i >= len(self.cfg.domain_rand.push_duration):
+    #             i = len(self.cfg.domain_rand.push_duration) - 1
+    #         duration = self.cfg.domain_rand.push_duration[i]/self.dt
+    #         if self.common_step_counter % self.cfg.domain_rand.push_interval <= duration:
+    #             self._push_robots()
+    #         else:
+    #             self.rand_push_force.zero_()
+    #             self.rand_push_torque.zero_()
 
 
     def create_sim(self):
@@ -458,54 +458,54 @@ class DiabloEnv(LeggedRobot):
             self.critic_history[i][env_ids] *= 0
         
 # ================================================ Rewards ================================================== #
-    def _reward_ref_joint_pos(self):
-        """
-        Calculates the reward based on the difference between the current joint positions and the target joint positions.
-        """
-        joint_pos = self.dof_pos.clone()
-        pos_target = self.ref_dof_pos.clone()
-        stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
-        pos_target[stand_command] = self.default_dof_pos.clone()
-        diff = joint_pos - pos_target
-        r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
-        r[stand_command] = 1.0
-        return r
+    # def _reward_ref_joint_pos(self):
+    #     """
+    #     Calculates the reward based on the difference between the current joint positions and the target joint positions.
+    #     """
+    #     joint_pos = self.dof_pos.clone()
+    #     pos_target = self.ref_dof_pos.clone()
+    #     stand_command = (torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold)
+    #     pos_target[stand_command] = self.default_dof_pos.clone()
+    #     diff = joint_pos - pos_target
+    #     r = torch.exp(-2 * torch.norm(diff, dim=1)) - 0.2 * torch.norm(diff, dim=1).clamp(0, 0.5)
+    #     r[stand_command] = 1.0
+    #     return r
     
-    def _reward_feet_distance(self):
-        """
-        Calculates the reward based on the distance between the feet. Penilize feet get close to each other or too far away.
-        """
-        foot_pos = self.rigid_state[:, self.feet_indices, :2]
-        foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
-        fd = self.cfg.rewards.foot_min_dist
-        max_df = self.cfg.rewards.foot_max_dist
-        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
-        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
-        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+    # def _reward_feet_distance(self):
+    #     """
+    #     Calculates the reward based on the distance between the feet. Penilize feet get close to each other or too far away.
+    #     """
+    #     foot_pos = self.rigid_state[:, self.feet_indices, :2]
+    #     foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
+    #     fd = self.cfg.rewards.foot_min_dist
+    #     max_df = self.cfg.rewards.foot_max_dist
+    #     d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
+    #     d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+    #     return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
 
-    def _reward_knee_distance(self):
-        """
-        Calculates the reward based on the distance between the knee of the humanoid.
-        """
-        foot_pos = self.rigid_state[:, self.knee_indices, :2]
-        foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
-        fd = self.cfg.rewards.foot_min_dist
-        max_df = self.cfg.rewards.foot_max_dist / 2
-        d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
-        d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
-        return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
+    # def _reward_knee_distance(self):
+    #     """
+    #     Calculates the reward based on the distance between the knee of the humanoid.
+    #     """
+    #     foot_pos = self.rigid_state[:, self.knee_indices, :2]
+    #     foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
+    #     fd = self.cfg.rewards.foot_min_dist
+    #     max_df = self.cfg.rewards.foot_max_dist / 2
+    #     d_min = torch.clamp(foot_dist - fd, -0.5, 0.)
+    #     d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+    #     return (torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)) / 2
 
-    def _reward_foot_slip(self):
-        """
-        Calculates the reward for minimizing foot slip. The reward is based on the contact forces 
-        and the speed of the feet. A contact threshold is used to determine if the foot is in contact 
-        with the ground. The speed of the foot is calculated and scaled by the contact conditions.
-        """
-        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
-        foot_speed_norm = torch.norm(self.rigid_state[:, self.feet_indices, 10:12], dim=2)
-        rew = torch.sqrt(foot_speed_norm)
-        rew *= contact
-        return torch.sum(rew, dim=1)
+    # def _reward_foot_slip(self):
+    #     """
+    #     Calculates the reward for minimizing foot slip. The reward is based on the contact forces 
+    #     and the speed of the feet. A contact threshold is used to determine if the foot is in contact 
+    #     with the ground. The speed of the foot is calculated and scaled by the contact conditions.
+    #     """
+    #     contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+    #     foot_speed_norm = torch.norm(self.rigid_state[:, self.feet_indices, 10:12], dim=2)
+    #     rew = torch.sqrt(foot_speed_norm)
+    #     rew *= contact
+    #     return torch.sum(rew, dim=1)
 
     def _reward_feet_air_time(self):
         """
@@ -524,16 +524,16 @@ class DiabloEnv(LeggedRobot):
         self.feet_air_time *= ~self.contact_filt
         return air_time.sum(dim=1)
 
-    def _reward_feet_contact_number(self):
-        """
-        Calculates a reward based on the number of feet contacts aligning with the gait phase. 
-        Rewards or penalizes depending on whether the foot contact matches the expected gait phase.
-        """
-        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
-        stance_mask = self._get_stance_mask().clone()
-        stance_mask[torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold] = 1
-        reward = torch.where(contact == stance_mask, 1, -0.3)
-        return torch.mean(reward, dim=1)
+    # def _reward_feet_contact_number(self):
+    #     """
+    #     Calculates a reward based on the number of feet contacts aligning with the gait phase. 
+    #     Rewards or penalizes depending on whether the foot contact matches the expected gait phase.
+    #     """
+    #     contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+    #     stance_mask = self._get_stance_mask().clone()
+    #     stance_mask[torch.norm(self.commands[:, :3], dim=1) <= self.cfg.commands.stand_com_threshold] = 1
+    #     reward = torch.where(contact == stance_mask, 1, -0.3)
+    #     return torch.mean(reward, dim=1)
 
     def _reward_orientation(self):
         """
@@ -569,9 +569,12 @@ class DiabloEnv(LeggedRobot):
         The reward is computed based on the height difference between the robot's base and the average height 
         of its feet when they are in contact with the ground.
         """
-        stance_mask = self._get_stance_mask()
+        # stance_mask = self._get_stance_mask()
+        # measured_heights = torch.sum(
+        #     self.rigid_state[:, self.feet_indices, 2] * stance_mask, dim=1) / torch.sum(stance_mask, dim=1)
+        # base_height = self.root_states[:, 2] - (measured_heights - self.cfg.rewards.feet_to_ankle_distance)
         measured_heights = torch.sum(
-            self.rigid_state[:, self.feet_indices, 2] * stance_mask, dim=1) / torch.sum(stance_mask, dim=1)
+            self.rigid_state[:, self.feet_indices, 2], dim=1)
         base_height = self.root_states[:, 2] - (measured_heights - self.cfg.rewards.feet_to_ankle_distance)
         return torch.exp(-torch.abs(base_height - self.cfg.rewards.base_height_target) * 100)
 
@@ -648,28 +651,28 @@ class DiabloEnv(LeggedRobot):
 
         return r 
     
-    def _reward_feet_clearance(self):
-        """
-        Calculates reward based on the clearance of the swing leg from the ground during movement.
-        Encourages appropriate lift of the feet during the swing phase of the gait.
-        """
-        # Compute feet contact mask
-        contact = self.contact_forces[:, self.feet_indices, 2] > 5.
+    # def _reward_feet_clearance(self):
+    #     """
+    #     Calculates reward based on the clearance of the swing leg from the ground during movement.
+    #     Encourages appropriate lift of the feet during the swing phase of the gait.
+    #     """
+    #     # Compute feet contact mask
+    #     contact = self.contact_forces[:, self.feet_indices, 2] > 5.
 
-        # Get the z-position of the feet and compute the change in z-position
-        feet_z = self.rigid_state[:, self.feet_indices, 2] - self.cfg.rewards.feet_to_ankle_distance
-        delta_z = feet_z - self.last_feet_z
-        self.feet_height += delta_z
-        self.last_feet_z = feet_z
+    #     # Get the z-position of the feet and compute the change in z-position
+    #     feet_z = self.rigid_state[:, self.feet_indices, 2] - self.cfg.rewards.feet_to_ankle_distance
+    #     delta_z = feet_z - self.last_feet_z
+    #     self.feet_height += delta_z
+    #     self.last_feet_z = feet_z
 
-        # Compute swing mask
-        swing_mask = 1 - self._get_stance_mask()
+    #     # Compute swing mask
+    #     swing_mask = 1 - self._get_stance_mask()
 
-        # feet height should larger than target feet height at the peak
-        rew_pos = (self.feet_height > self.cfg.rewards.target_feet_height) * (self.feet_height < self.cfg.rewards.target_feet_height_max)
-        rew_pos = torch.sum(rew_pos * swing_mask, dim=1)
-        self.feet_height *= ~contact
-        return rew_pos
+    #     # feet height should larger than target feet height at the peak
+    #     rew_pos = (self.feet_height > self.cfg.rewards.target_feet_height) * (self.feet_height < self.cfg.rewards.target_feet_height_max)
+    #     rew_pos = torch.sum(rew_pos * swing_mask, dim=1)
+    #     self.feet_height *= ~contact
+    #     return rew_pos
 
     def _reward_low_speed(self):
         """
@@ -719,12 +722,12 @@ class DiabloEnv(LeggedRobot):
         ankle_idx = [4,5,10,11]
         return torch.sum(torch.square(self.torques[:,ankle_idx]), dim=1)
     
-    def _reward_feet_rotation(self):
-        feet_euler_xyz = self.feet_euler_xyz
-        rotation = torch.sum(torch.square(feet_euler_xyz[:,:,:2]),dim=[1,2])
-        # rotation = torch.sum(torch.square(feet_euler_xyz[:,:,1]),dim=1)
-        r = torch.exp(-rotation*15)
-        return r
+    # def _reward_feet_rotation(self):
+    #     feet_euler_xyz = self.feet_euler_xyz
+    #     rotation = torch.sum(torch.square(feet_euler_xyz[:,:,:2]),dim=[1,2])
+    #     # rotation = torch.sum(torch.square(feet_euler_xyz[:,:,1]),dim=1)
+    #     r = torch.exp(-rotation*15)
+    #     return r
 
     def _reward_dof_vel(self):
         """

@@ -243,19 +243,19 @@ class LeggedRobot(BaseTask):
         self.fail_buf *= fail_buf
         self.fail_buf += fail_buf
 
-        if self.cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
-            self.edge_reset_buf = self.base_position[:,
-                                                     0] > self.terrain_x_max - 1
-            self.edge_reset_buf |= self.base_position[:,
-                                                      0] < self.terrain_x_min + 1
-            self.edge_reset_buf |= self.base_position[:,
-                                                      1] > self.terrain_y_max - 1
-            self.edge_reset_buf |= self.base_position[:,
-                                                      1] < self.terrain_y_min + 1
+        # if self.cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
+        #     self.edge_reset_buf = self.base_position[:,
+        #                                              0] > self.terrain_x_max - 1
+        #     self.edge_reset_buf |= self.base_position[:,
+        #                                               0] < self.terrain_x_min + 1
+        #     self.edge_reset_buf |= self.base_position[:,
+        #                                               1] > self.terrain_y_max - 1
+        #     self.edge_reset_buf |= self.base_position[:,
+        #                                               1] < self.terrain_y_min + 1
 
         self.reset_buf |= ((self.fail_buf
                            > self.cfg.env.fail_to_terminal_time_s / self.dt)
-                          | self.edge_reset_buf)
+                          )
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -1292,12 +1292,48 @@ class LeggedRobot(BaseTask):
             self.env_origins = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
             # put robots at the origins defined by the terrain
             max_init_level = self.cfg.terrain.max_init_terrain_level
-            if not self.cfg.terrain.curriculum: max_init_level = self.cfg.terrain.num_rows - 1
+            if not self.cfg.terrain.curriculum: 
+                max_init_level = self.cfg.terrain.num_rows - 1
             self.terrain_levels = torch.randint(0, max_init_level+1, (self.num_envs,), device=self.device)
             self.terrain_types = torch.div(torch.arange(self.num_envs, device=self.device), (self.num_envs/self.cfg.terrain.num_cols), rounding_mode='floor').to(torch.long)
             self.max_terrain_level = self.cfg.terrain.num_rows
             self.terrain_origins = torch.from_numpy(self.terrain.env_origins).to(self.device).to(torch.float)
             self.env_origins[:] = self.terrain_origins[self.terrain_levels, self.terrain_types]
+            # wheel legged gym
+            self.flat_idx = (self.terrain_types
+                             < 4).nonzero(as_tuple=False).flatten()
+            self.smooth_slope_idx = (((4 <= self.terrain_types) *
+                                      (self.terrain_types < 8)).nonzero(
+                                          as_tuple=False).flatten())
+            self.rough_slope_idx = (((8 <= self.terrain_types) *
+                                     (self.terrain_types < 12)).nonzero(
+                                         as_tuple=False).flatten())
+            self.stair_up_idx = (((12 <= self.terrain_types) *
+                                  (self.terrain_types < 14)).nonzero(
+                                      as_tuple=False).flatten())
+            self.stair_down_idx = (((14 <= self.terrain_types) *
+                                    (self.terrain_types < 18)).nonzero(
+                                        as_tuple=False).flatten())
+            self.discrete_idx = (((18 <= self.terrain_types) *
+                                  (self.terrain_types < 20)).nonzero(
+                                      as_tuple=False).flatten())
+            self.basic_terrain_idx = torch.cat((
+                self.flat_idx,
+                self.smooth_slope_idx,
+                self.rough_slope_idx,
+                self.stair_down_idx,
+            ))
+            self.advanced_terrain_idx = torch.cat(
+                (self.stair_up_idx, self.discrete_idx))
+
+            self.terrain_x_max = (
+                self.cfg.terrain.num_rows * self.cfg.terrain.terrain_length +
+                self.cfg.terrain.border_size)
+            self.terrain_x_min = -self.cfg.terrain.border_size
+            self.terrain_y_max = (
+                self.cfg.terrain.num_cols * self.cfg.terrain.terrain_length +
+                self.cfg.terrain.border_size)
+            self.terrain_y_min = -self.cfg.terrain.border_size
         else:
             self.custom_origins = False
             self.env_origins = torch.zeros(self.num_envs, 3, device=self.device, requires_grad=False)
@@ -1309,6 +1345,7 @@ class LeggedRobot(BaseTask):
             self.env_origins[:, 0] = spacing * xx.flatten()[:self.num_envs]
             self.env_origins[:, 1] = spacing * yy.flatten()[:self.num_envs]
             self.env_origins[:, 2] = 0.
+            self.flat_idx = torch.arange(self.num_envs, device=self.device) # wheel legged gym
 
     def _parse_cfg(self, cfg):
         ''' Parse simulation, reward, command, terrain, random configuration

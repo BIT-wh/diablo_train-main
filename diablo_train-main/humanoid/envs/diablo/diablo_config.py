@@ -276,15 +276,15 @@ class X1DHStandCfg(LeggedRobotCfg):
         curriculum = True
         max_curriculum = 1.5
         # Vers: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
-        num_commands = 4
+        num_commands = 3 # 4
         resampling_time = 25.  # time before command are changed[s]
-        gait = ["walk_omnidirectional","stand","walk_omnidirectional"] # gait type during training
-        # proportion during whole life time
-        gait_time_range = {"walk_sagittal": [2,6],
-                           "walk_lateral": [2,6],
-                           "rotate": [2,3],
-                           "stand": [2,3],
-                           "walk_omnidirectional": [4,6]}
+        # gait = ["walk_omnidirectional","stand","walk_omnidirectional"] # gait type during training
+        # # proportion during whole life time
+        # gait_time_range = {"walk_sagittal": [2,6],
+        #                    "walk_lateral": [2,6],
+        #                    "rotate": [2,3],
+        #                    "stand": [2,3],
+        #                    "walk_omnidirectional": [4,6]}
 
         heading_command = False  # if true: compute ang vel command from heading error
         stand_com_threshold = 0.05 # if (lin_vel_x, lin_vel_y, ang_vel_yaw).norm < this, robot should stand
@@ -308,7 +308,7 @@ class X1DHStandCfg(LeggedRobotCfg):
         final_swing_joint_delta_pos = [0.25, 0.05, -0.11, 0.35, -0.16, 0.0, -0.25, -0.05, 0.11, 0.35, -0.16, 0.0]
         target_feet_height = 0.03 
         target_feet_height_max = 0.06
-        feet_to_ankle_distance = 0.041
+        feet_to_ankle_distance = 0.1
         cycle_time = 0.7
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
