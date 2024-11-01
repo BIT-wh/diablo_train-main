@@ -102,6 +102,7 @@ class LeggedRobot(BaseTask):
         self.init_done = False
         self._parse_cfg(self.cfg)
         super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless)
+        self.pi = torch.acos(torch.zeros(1, device=self.device)) * 2
         if not self.headless:
             self.set_camera(self.cfg.viewer.pos, self.cfg.viewer.lookat)
         self._init_buffers()
@@ -213,8 +214,6 @@ class LeggedRobot(BaseTask):
         self.last_contact_forces[:] = self.contact_forces[:]
         self.last_torques[:] = self.torques[:]
 
-        self.last_actions[:, :, 1] = self.last_actions[:, :, 0]
-        self.last_actions[:, :, 0] = self.actions[:]
         self.last_base_position[:] = self.base_position[:]
 
         if self.viewer and self.enable_viewer_sync and self.debug_viz:
@@ -223,7 +222,7 @@ class LeggedRobot(BaseTask):
     def check_termination(self):
         """ Check if environments need to be reset
         """
-        self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
+        # self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         
         roll_cutoff = torch.abs(self.base_euler_xyz[:,0]) > 1.5
@@ -942,6 +941,16 @@ class LeggedRobot(BaseTask):
         self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
         self.base_ang_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.gravity_vec)
+        
+        # wh: push real force and torque
+        self.rigid_body_external_forces = torch.zeros(
+            (self.num_envs, self.num_bodies, 3),
+            device=self.device,
+            requires_grad=False)
+        self.rigid_body_external_torques = torch.zeros(
+            (self.num_envs, self.num_bodies, 3),
+            device=self.device,
+            requires_grad=False)
         
         if self.cfg.terrain.measure_heights:
             self.height_points = self._init_height_points()

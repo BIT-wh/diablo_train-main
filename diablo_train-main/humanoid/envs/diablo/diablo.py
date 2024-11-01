@@ -117,19 +117,39 @@ class DiabloEnv(LeggedRobot):
     def _push_robots(self):
         """ Random pushes the robots. Emulates an impulse by setting a randomized base velocity. 
         """
-        max_vel = self.cfg.domain_rand.max_push_vel_xy
-        max_push_angular = self.cfg.domain_rand.max_push_ang_vel
-        self.rand_push_force[:, :2] = torch_rand_float(
-            -max_vel, max_vel, (self.num_envs, 2), device=self.device)  # lin vel x/y
-        self.root_states[:, 7:9] = self.rand_push_force[:, :2]
+        # max_vel = self.cfg.domain_rand.max_push_vel_xy
+        # max_push_angular = self.cfg.domain_rand.max_push_ang_vel
+        # self.rand_push_force[:, :2] = torch_rand_float(
+        #     -max_vel, max_vel, (self.num_envs, 2), device=self.device)  # lin vel x/y
+        # self.root_states[:, 7:9] = self.rand_push_force[:, :2]
 
-        self.rand_push_torque = torch_rand_float(
-            -max_push_angular, max_push_angular, (self.num_envs, 3), device=self.device)  #angular vel xyz
+        # self.rand_push_torque = torch_rand_float(
+        #     -max_push_angular, max_push_angular, (self.num_envs, 3), device=self.device)  #angular vel xyz
 
-        self.root_states[:, 10:13] = self.rand_push_torque
-        self.gym.set_actor_root_state_tensor(
-            self.sim, gymtorch.unwrap_tensor(self.root_states))()
-    
+        # self.root_states[:, 10:13] = self.rand_push_torque
+        # self.gym.set_actor_root_state_tensor(
+        #     self.sim, gymtorch.unwrap_tensor(self.root_states))
+        # ------------ real push (using force & torque) -----------------
+        max_push_force = (self.body_mass.mean().item() *
+                          self.cfg.domain_rand.max_push_vel_xy /
+                          self.sim_params.dt)
+        self.rigid_body_external_forces[:] = 0
+        rigid_body_external_forces = torch_rand_float(-max_push_force,
+                                                      max_push_force,
+                                                      (self.num_envs, 3),
+                                                      device=self.device)
+        self.rigid_body_external_forces[:, 0, 0:3] = quat_rotate(
+            self.base_quat[:], rigid_body_external_forces[:])
+        self.rigid_body_external_forces[:, 0, 2] *= 0.5
+
+        self.gym.apply_rigid_body_force_tensors(
+            self.sim,
+            gymtorch.unwrap_tensor(self.rigid_body_external_forces),
+            gymtorch.unwrap_tensor(self.rigid_body_external_torques),
+            gymapi.ENV_SPACE,
+        )
+
+
     # # TODO: 需要修改resample command
     # def _resample_commands(self):
     #     """ Randommly select commands of some environments
@@ -215,26 +235,26 @@ class DiabloEnv(LeggedRobot):
     #             self.rand_push_torque.zero_()
 
 
-    def create_sim(self):
-        """ Creates simulation, terrain and evironments
-        """
-        self.up_axis_idx = 2  # 2 for z, 1 for y -> adapt gravity accordingly
-        self.sim = self.gym.create_sim(
-            self.sim_device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
-        mesh_type = self.cfg.terrain.mesh_type
-        if mesh_type in ['heightfield', 'trimesh']:
-            self.terrain = Terrain(self.cfg.terrain, self.num_envs)
+    # def create_sim(self):
+    #     """ Creates simulation, terrain and evironments
+    #     """
+    #     self.up_axis_idx = 2  # 2 for z, 1 for y -> adapt gravity accordingly
+    #     self.sim = self.gym.create_sim(
+    #         self.sim_device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
+    #     mesh_type = self.cfg.terrain.mesh_type
+    #     if mesh_type in ['heightfield', 'trimesh']:
+    #         self.terrain = Terrain(self.cfg.terrain, self.num_envs)
 
-        if mesh_type == 'plane':
-            self._create_ground_plane()
-        elif mesh_type == 'heightfield':
-            self._create_heightfield()
-        elif mesh_type == 'trimesh':
-            self._create_trimesh()
-        elif mesh_type is not None:
-            raise ValueError(
-                "Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
-        self._create_envs()
+    #     if mesh_type == 'plane':
+    #         self._create_ground_plane()
+    #     elif mesh_type == 'heightfield':
+    #         self._create_heightfield()
+    #     elif mesh_type == 'trimesh':
+    #         self._create_trimesh()
+    #     elif mesh_type is not None:
+    #         raise ValueError(
+    #             "Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
+    #     self._create_envs()
 
 
     def _get_noise_scale_vec(self, cfg):
@@ -268,23 +288,23 @@ class DiabloEnv(LeggedRobot):
 
     def compute_observations(self):
 
-        phase = self._get_phase()
+        # phase = self._get_phase()
 
-        sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
-        cos_pos = torch.cos(2 * torch.pi * phase).unsqueeze(1)
+        # sin_pos = torch.sin(2 * torch.pi * phase).unsqueeze(1)
+        # cos_pos = torch.cos(2 * torch.pi * phase).unsqueeze(1)
 
         contact_mask = self.contact_forces[:, self.feet_indices, 2] > 5.
 
-        self.command_input = torch.cat(
-            (sin_pos, cos_pos, self.commands[:, :3] * self.commands_scale), dim=1)
+        # self.command_input = torch.cat(
+        #     (sin_pos, cos_pos, self.commands[:, :3] * self.commands_scale), dim=1)
         
         # critic no lag
         # 59
         privileged_obs_buf = torch.cat((
             self.commands[:, :3] * self.commands_scale ,  # 3
-            (self.dof_pos - self.default_joint_pd_target) * self.obs_scales.dof_pos,  # 12
-            self.dof_vel * self.obs_scales.dof_vel,  # 12
-            self.actions,  # 12
+            (self.dof_pos - self.default_joint_pd_target) * self.obs_scales.dof_pos,  # 6
+            self.dof_vel * self.obs_scales.dof_vel,  # 6
+            self.actions,  # 6
             self.base_lin_vel * self.obs_scales.lin_vel,  # 3
             self.base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.base_euler_xyz * self.obs_scales.quat,  # 3
@@ -294,7 +314,6 @@ class DiabloEnv(LeggedRobot):
             self.body_mass / 10.,  # 1 # sum of all fix link mass
             contact_mask,  # 2
         ), dim=-1)
-        
         # random add dof_pos and dof_vel same lag
         if self.cfg.domain_rand.add_dof_lag:
             if self.cfg.domain_rand.randomize_dof_lag_timesteps_perstep:
@@ -349,10 +368,10 @@ class DiabloEnv(LeggedRobot):
 
         # 47
         obs_buf = torch.cat((
-            self.command_input,  # 5 = 2D(sin cos) + 3D(vel_x, vel_y, aug_vel_yaw)
-            q,    # 12
-            dq,  # 12
-            self.actions,   # 12
+            self.commands[:, :3] * self.commands_scale ,  # 3D(vel_x, vel_y, aug_vel_yaw)
+            q,    # 6
+            dq,  # 6
+            self.actions,   # 6
             self.lagged_base_ang_vel * self.obs_scales.ang_vel,  # 3
             self.lagged_base_euler_xyz * self.obs_scales.quat,  # 3
         ), dim=-1)
@@ -422,7 +441,7 @@ class DiabloEnv(LeggedRobot):
         self.reset_buf[env_ids] = 1
         
         #resample command
-        self._resample_commands()
+        self._resample_commands(env_ids)
         
         # fill extras
         self.extras["episode"] = {}

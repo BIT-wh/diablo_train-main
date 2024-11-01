@@ -32,7 +32,7 @@
 
 from humanoid.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
-class X1DHStandCfg(LeggedRobotCfg):
+class DiabloCfg(LeggedRobotCfg):
     """
     Configuration class for the XBotL humanoid robot.
     """
@@ -41,12 +41,12 @@ class X1DHStandCfg(LeggedRobotCfg):
         frame_stack = 66      #all histroy obs num
         short_frame_stack = 5   #short history step
         c_frame_stack = 3  #all histroy privileged obs num
-        num_single_obs = 47
+        num_single_obs = 47 - 2 - 3 * 6
         num_observations = int(frame_stack * num_single_obs)
-        single_num_privileged_obs = 73
-        single_linvel_index = 39    # linvel对应在privileged_obs
+        single_num_privileged_obs = 39
+        single_linvel_index = 21    # linvel对应在privileged_obs
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
-        num_actions = 12
+        num_actions = 6
         num_envs = 4096
         episode_length_s = 24 #episode length in seconds
         use_ref_actions = False
@@ -288,9 +288,9 @@ class X1DHStandCfg(LeggedRobotCfg):
 
         heading_command = False  # if true: compute ang vel command from heading error
         stand_com_threshold = 0.05 # if (lin_vel_x, lin_vel_y, ang_vel_yaw).norm < this, robot should stand
-        sw_switch = True # use stand_com_threshold or not
+        # sw_switch = True # use stand_com_threshold or not
 
-        class ranges:
+        class ranges(LeggedRobotCfg.commands.ranges):
             lin_vel_x = [-0.4, 1.2] # min max [m/s] 
             lin_vel_y = [-0.4, 0.4]   # min max [m/s]
             ang_vel_yaw = [-0.6, 0.6]    # min max [rad/s]
@@ -300,16 +300,16 @@ class X1DHStandCfg(LeggedRobotCfg):
         soft_dof_pos_limit = 0.98
         soft_dof_vel_limit = 0.9
         soft_torque_limit = 0.9
-        base_height_target = 0.61
+        base_height_target = 0.3
         foot_min_dist = 0.2
         foot_max_dist = 1.0
 
         # final_swing_joint_pos = final_swing_joint_delta_pos + default_pos
-        final_swing_joint_delta_pos = [0.25, 0.05, -0.11, 0.35, -0.16, 0.0, -0.25, -0.05, 0.11, 0.35, -0.16, 0.0]
-        target_feet_height = 0.03 
-        target_feet_height_max = 0.06
+        # final_swing_joint_delta_pos = [0.25, 0.05, -0.11, 0.35, -0.16, 0.0, -0.25, -0.05, 0.11, 0.35, -0.16, 0.0]
+        # target_feet_height = 0.03 
+        # target_feet_height_max = 0.06
         feet_to_ankle_distance = 0.1
-        cycle_time = 0.7
+        # cycle_time = 0.7
         # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards = True
         # tracking reward = exp(-error*sigma)
@@ -317,36 +317,36 @@ class X1DHStandCfg(LeggedRobotCfg):
         max_contact_force = 700  # forces above this value are penalized
         
         class scales:
-            ref_joint_pos = 2.2
-            feet_clearance = 1.
-            feet_contact_number = 2.0
-            # gait
-            feet_air_time = 1.2
-            foot_slip = -0.1
-            feet_distance = 0.2
-            knee_distance = 0.2
-            # contact 
-            feet_contact_forces = -0.01
+            # ref_joint_pos = 2.2
+            # feet_clearance = 1.
+            # feet_contact_number = 2.0
+            # # gait
+            # feet_air_time = 1.2
+            # foot_slip = -0.1
+            # feet_distance = 0.2
+            # knee_distance = 0.2
+            # # contact 
+            # feet_contact_forces = -0.01
             # vel tracking
             tracking_lin_vel = 1.8
             tracking_ang_vel = 1.1
-            vel_mismatch_exp = 0.5  # lin_z; ang x,y
-            low_speed = 0.2
-            track_vel_hard = 0.5
-            # base pos
-            default_joint_pos = 1.0
-            orientation = 1.
-            feet_rotation = 0.3
-            base_height = 0.2
-            base_acc = 0.2
-            # energy
-            action_smoothness = -0.002
-            torques = -8e-9
-            dof_vel = -2e-8
-            dof_acc = -1e-7
-            collision = -1.
-            stand_still = 2.5
-            # limits
+            # vel_mismatch_exp = 0.5  # lin_z; ang x,y
+            # low_speed = 0.2
+            # track_vel_hard = 0.5
+            # # base pos
+            # default_joint_pos = 1.0
+            # orientation = 1.
+            # feet_rotation = 0.3
+            # base_height = 0.2
+            # base_acc = 0.2
+            # # energy
+            # action_smoothness = -0.002
+            # torques = -8e-9
+            # dof_vel = -2e-8
+            # dof_acc = -1e-7
+            # collision = -1.
+            # stand_still = 2.5
+            # # limits
             dof_vel_limits = -1
             dof_pos_limits = -10.
             dof_torque_limits = -0.1
@@ -363,7 +363,7 @@ class X1DHStandCfg(LeggedRobotCfg):
         clip_actions = 100.
 
 
-class X1DHStandCfgPPO(LeggedRobotCfgPPO):
+class DiabloCfgPPO(LeggedRobotCfgPPO):
     seed = 5
     runner_class_name = 'DHOnPolicyRunner'   # DWLOnPolicyRunner
 
@@ -378,7 +378,7 @@ class X1DHStandCfgPPO(LeggedRobotCfgPPO):
         filter_size=[32, 16]
         stride_size=[3, 2]
         lh_output_dim= 64   #long history output dim
-        in_channels = X1DHStandCfg.env.frame_stack
+        in_channels = DiabloCfg.env.frame_stack
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.001
@@ -387,10 +387,10 @@ class X1DHStandCfgPPO(LeggedRobotCfgPPO):
         gamma = 0.994
         lam = 0.9
         num_mini_batches = 4
-        if X1DHStandCfg.terrain.measure_heights:
-            lin_vel_idx = (X1DHStandCfg.env.single_num_privileged_obs + X1DHStandCfg.terrain.num_height) * (X1DHStandCfg.env.c_frame_stack - 1) + X1DHStandCfg.env.single_linvel_index
+        if DiabloCfg.terrain.measure_heights:
+            lin_vel_idx = (DiabloCfg.env.single_num_privileged_obs + DiabloCfg.terrain.num_height) * (DiabloCfg.env.c_frame_stack - 1) + DiabloCfg.env.single_linvel_index
         else:
-            lin_vel_idx = X1DHStandCfg.env.single_num_privileged_obs * (X1DHStandCfg.env.c_frame_stack - 1) + X1DHStandCfg.env.single_linvel_index
+            lin_vel_idx = DiabloCfg.env.single_num_privileged_obs * (DiabloCfg.env.c_frame_stack - 1) + DiabloCfg.env.single_linvel_index
 
     class runner:
         policy_class_name = 'ActorCriticDH'
@@ -400,7 +400,7 @@ class X1DHStandCfgPPO(LeggedRobotCfgPPO):
 
         # logging
         save_interval = 100  # check for potential saves every this many iterations
-        experiment_name = 'x1_dh_stand'
+        experiment_name = 'diablo'
         run_name = ''
         # load and resume
         resume = False
